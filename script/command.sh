@@ -1,0 +1,1 @@
+.\start.ps1 -Model base -Language auto -RefreshSeconds 25

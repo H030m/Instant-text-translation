@@ -1,0 +1,8 @@
+.venv/
+models/
+cache/
+output/
+__pycache__/
+*.pyc
+.learnings/
+*.bak-*
