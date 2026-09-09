@@ -59,9 +59,10 @@ def is_web_url(value: str) -> bool:
 
 def open_audio_stream(
     source: str, buffer_size: int
-) -> tuple[subprocess.Popen[bytes], subprocess.Popen[bytes] | None]:
+) -> tuple[subprocess.Popen[bytes], subprocess.Popen[bytes] | None, bool]:
     input_source = source
     http_headers = {}
+    live_source = False
 
     if is_web_url(source):
         print("正在連接直播網址……", flush=True)
@@ -77,6 +78,10 @@ def open_audio_stream(
         if not input_source:
             raise RuntimeError("yt-dlp 沒有回傳可播放的直播網址。")
         http_headers = info.get("http_headers") or {}
+        live_source = bool(
+            info.get("is_live")
+            or info.get("live_status") in {"is_live", "is_upcoming"}
+        )
     else:
         path = Path(source).expanduser().resolve()
         if not path.is_file():
@@ -91,11 +96,14 @@ def open_audio_stream(
             f"{name}: {value}\r\n" for name, value in http_headers.items()
         )
         ffmpeg_command.extend(["-headers", header_text])
+    if is_web_url(source):
+        ffmpeg_command.extend([
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_on_http_error", "403,404,5xx",
+            "-reconnect_delay_max", "5",
+        ])
     ffmpeg_command.extend([
-        "-reconnect", "1",
-        "-reconnect_streamed", "1",
-        "-reconnect_on_http_error", "403,404,5xx",
-        "-reconnect_delay_max", "5",
         "-i", input_source,
         "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
         "-f", "s16le", "pipe:1",
@@ -105,7 +113,7 @@ def open_audio_stream(
         stdout=subprocess.PIPE,
         bufsize=buffer_size * 2,
     )
-    return process, None
+    return process, None, live_source
 
 
 def read_audio_chunks(
@@ -154,7 +162,7 @@ def transcribe_stream_once(args: argparse.Namespace, model: WhisperModel) -> Pat
     language = None if args.language.lower() == "auto" else args.language
     print(f"輸出：{output_path}", flush=True)
     print("開始轉寫；按 Ctrl+C 停止。", flush=True)
-    process, downloader = open_audio_stream(args.source, chunk_bytes)
+    process, downloader, _ = open_audio_stream(args.source, chunk_bytes)
     audio_queue: Queue[tuple[float, bytes] | None] = Queue(maxsize=24)
     reader = Thread(
         target=read_audio_chunks,
@@ -233,7 +241,7 @@ def transcribe_stream(args: argparse.Namespace, model: WhisperModel) -> Path:
     bytes_per_second = 16000 * 2
     chunk_bytes = int(bytes_per_second * args.chunk_seconds)
     language = None if args.language.lower() == "auto" else args.language
-    refresh_url = is_web_url(args.source) and args.refresh_seconds > 0
+    refresh_url = False
     stream_offset = 0.0
 
     print(f"輸出：{output_path}", flush=True)
@@ -241,7 +249,8 @@ def transcribe_stream(args: argparse.Namespace, model: WhisperModel) -> Path:
     try:
         with output_path.open("a", encoding="utf-8", buffering=1) as output_file:
             while True:
-                process, downloader = open_audio_stream(args.source, chunk_bytes)
+                process, downloader, live_source = open_audio_stream(args.source, chunk_bytes)
+                refresh_url = live_source and args.refresh_seconds > 0
                 audio_queue: Queue[tuple[float, bytes] | None] = Queue(maxsize=24)
                 reader = Thread(
                     target=read_audio_chunks,

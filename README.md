@@ -27,6 +27,24 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 按 `Ctrl+C` 停止。文字即時寫入 `output\live-日期時間.txt`（UTF-8）。
 
+本地 MP3／MP4／WAV：
+
+```powershell
+.\start.ps1 "C:\完整路徑\音訊.mp3"
+.\start.ps1 "C:\完整路徑\錄影.mp4"
+```
+
+YouTube 非直播影片也可以直接轉寫；程式會播放完就結束，不會套用直播 URL 刷新：
+
+```powershell
+.\start.ps1 "https://www.youtube.com/watch?v=影片ID" -Model base -Language auto
+```
+
+Google Meet：
+
+- 會後錄影已下載成 MP4／MP3：直接傳入檔案路徑。
+- 正在開會、要即時擷取瀏覽器聲音：需要 Windows 虛擬音訊 loopback 裝置。目前這台電腦只偵測到 `麥克風 (Realtek(R) Audio)`，沒有 WASAPI／虛擬 loopback，因此不能直接抓 Meet 系統聲音。
+
 ## 常用調整
 
 ```powershell
