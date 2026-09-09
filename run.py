@@ -37,6 +37,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cpu-threads", type=int, default=min(10, os.cpu_count() or 1), help="CPU 執行緒數（預設：最多 10）")
     parser.add_argument("--output", type=Path, help="輸出文字檔路徑")
     parser.add_argument(
+        "--input-device",
+        help="Windows DirectShow 音訊裝置名稱；設定後忽略 source，持續擷取該裝置",
+    )
+    parser.add_argument(
         "--refresh-seconds",
         type=float,
         default=20.0,
@@ -58,8 +62,24 @@ def is_web_url(value: str) -> bool:
 
 
 def open_audio_stream(
-    source: str, buffer_size: int
+    source: str, buffer_size: int, input_device: str | None = None
 ) -> tuple[subprocess.Popen[bytes], subprocess.Popen[bytes] | None, bool]:
+    if input_device:
+        ffmpeg_command = [
+            "ffmpeg", "-hide_banner", "-loglevel", "warning",
+            "-f", "dshow",
+            "-thread_queue_size", "512",
+            "-i", f"audio={input_device}",
+            "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
+            "-f", "s16le", "pipe:1",
+        ]
+        process = subprocess.Popen(
+            ffmpeg_command,
+            stdout=subprocess.PIPE,
+            bufsize=buffer_size * 2,
+        )
+        return process, None, False
+
     input_source = source
     http_headers = {}
     live_source = False
@@ -162,7 +182,9 @@ def transcribe_stream_once(args: argparse.Namespace, model: WhisperModel) -> Pat
     language = None if args.language.lower() == "auto" else args.language
     print(f"輸出：{output_path}", flush=True)
     print("開始轉寫；按 Ctrl+C 停止。", flush=True)
-    process, downloader, _ = open_audio_stream(args.source, chunk_bytes)
+    process, downloader, _ = open_audio_stream(
+        args.source, chunk_bytes, args.input_device
+    )
     audio_queue: Queue[tuple[float, bytes] | None] = Queue(maxsize=24)
     reader = Thread(
         target=read_audio_chunks,
@@ -249,7 +271,9 @@ def transcribe_stream(args: argparse.Namespace, model: WhisperModel) -> Path:
     try:
         with output_path.open("a", encoding="utf-8", buffering=1) as output_file:
             while True:
-                process, downloader, live_source = open_audio_stream(args.source, chunk_bytes)
+                process, downloader, live_source = open_audio_stream(
+                    args.source, chunk_bytes, args.input_device
+                )
                 refresh_url = live_source and args.refresh_seconds > 0
                 audio_queue: Queue[tuple[float, bytes] | None] = Queue(maxsize=24)
                 reader = Thread(

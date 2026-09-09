@@ -43,7 +43,20 @@ YouTube 非直播影片也可以直接轉寫；程式會播放完就結束，不
 Google Meet：
 
 - 會後錄影已下載成 MP4／MP3：直接傳入檔案路徑。
-- 正在開會、要即時擷取瀏覽器聲音：需要 Windows 虛擬音訊 loopback 裝置。目前這台電腦只偵測到 `麥克風 (Realtek(R) Audio)`，沒有 WASAPI／虛擬 loopback，因此不能直接抓 Meet 系統聲音。
+- 正在開會、要即時擷取瀏覽器聲音：可用 OBS 將桌面音效送到 Windows 虛擬音訊裝置（例如 VB-CABLE），再指定錄音端點：
+
+```powershell
+.\start.ps1 -InputDevice "CABLE Output (VB-Audio Virtual Cable)" -Model base -Language auto
+```
+
+  OBS 的 `Desktop Audio` 監聽輸出請送到 `CABLE Input`；程式擷取端是 `CABLE Output`。`OBS Virtual Camera` 只有影像，不能當作音訊輸入。
+
+  VB-CABLE 官方安裝包：[VB-Audio CABLE](https://vb-audio.com/Cable/)。解壓後以系統管理員執行 `VBCABLE_Setup_x64.exe`，完成後重新啟動 Windows。可用下面指令確認 FFmpeg 看得到錄音端點：
+
+```powershell
+ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1 |
+  Select-String "\(audio\)"
+```
 
 ## 常用調整
 

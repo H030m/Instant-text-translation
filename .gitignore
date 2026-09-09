@@ -2,6 +2,7 @@
 models/
 cache/
 output/
+installer/
 __pycache__/
 *.pyc
 .learnings/

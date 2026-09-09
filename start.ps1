@@ -5,7 +5,8 @@ param(
     [string]$Language = "zh",
     [double]$ChunkSeconds = 5.0,
     [double]$RefreshSeconds = 20.0,
-    [string]$Output = ""
+    [string]$Output = "",
+    [string]$InputDevice = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,8 +22,13 @@ $env:HF_HOME = Join-Path $ProjectRoot "cache\huggingface"
 $env:HUGGINGFACE_HUB_CACHE = Join-Path $ProjectRoot "models"
 $env:XDG_CACHE_HOME = Join-Path $ProjectRoot "cache"
 
-$RunArgs = @(
-    (Join-Path $ProjectRoot "run.py"), $Source,
+$RunArgs = @((Join-Path $ProjectRoot "run.py"))
+if ($InputDevice) {
+    $RunArgs += @("--input-device", $InputDevice)
+} else {
+    $RunArgs += @($Source)
+}
+$RunArgs += @(
     "--model", $Model, "--language", $Language,
     "--chunk-seconds", $ChunkSeconds,
     "--refresh-seconds", $RefreshSeconds
