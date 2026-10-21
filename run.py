@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-seconds", type=float, default=5.0, help="每段音訊秒數（預設：5）")
     parser.add_argument("--cpu-threads", type=int, default=min(10, os.cpu_count() or 1), help="CPU 執行緒數（預設：最多 10）")
     parser.add_argument("--output", type=Path, help="輸出文字檔路徑")
+    parser.add_argument("--hotwords", default="Quiz 小考 同學", help="提示 Whisper 偏向輸出的詞（預設：Quiz 小考 同學；空字串停用）")
     parser.add_argument(
         "--input-device",
         help="Windows DirectShow 音訊裝置名稱；設定後忽略 source，持續擷取該裝置",
@@ -210,6 +211,7 @@ def transcribe_stream_once(args: argparse.Namespace, model: WhisperModel) -> Pat
                 segments, _ = model.transcribe(
                     audio, language=language, beam_size=1,
                     condition_on_previous_text=False, vad_filter=True,
+                    hotwords=args.hotwords or None,
                 )
                 for segment in segments:
                     start = offset_seconds + segment.start
@@ -311,6 +313,7 @@ def transcribe_stream(args: argparse.Namespace, model: WhisperModel) -> Path:
                             beam_size=1,
                             condition_on_previous_text=False,
                             vad_filter=True,
+                            hotwords=args.hotwords or None,
                         )
                         for segment in segments:
                             start = offset_seconds + segment.start

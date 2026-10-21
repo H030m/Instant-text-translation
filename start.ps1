@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [string]$Source = "https://www.youtube.com/live/0Hb5laOEUVs",
+    [string]$Source = "https://www.youtube.com/live/plOlHXJ8II4",
     [string]$Model = "small",
     [string]$Language = "zh",
     [double]$ChunkSeconds = 5.0,

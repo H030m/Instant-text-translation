@@ -72,6 +72,9 @@ ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1 |
 
 # signed URL 每 20 秒自動刷新（預設值）
 .\start.ps1 -Model base -RefreshSeconds 20
+
+# 提示 Whisper 偏向輸出的詞（直接呼叫 run.py；預設 "Quiz 小考 同學"，空字串停用）
+.\.venv\Scripts\python.exe run.py "直播網址" --hotwords "Quiz 小考 期中考"
 ```
 
 目前預設為 `small`、CPU `int8`、每 5 秒處理一次。模型越大通常越準，但延遲也越高。
@@ -85,12 +88,47 @@ ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1 |
 
 實測 `base` 在本機每 5 秒音訊約需 0.4–0.6 秒處理，能跟上即時速度；`small` 精度較高但可用 `-Model small` 自行比較。
 
+## 課堂提醒：`alert.ps1`
+
+另開一個 PowerShell 視窗，跟 `start.ps1` 同時跑。它會監看逐字稿，偵測到小考、點名、抽問或疑似 Quiz 時，跳出 Windows 通知並發出提示音。
+
+```powershell
+.\alert.ps1                     # 自動監看 output\ 最新的 live-*.txt；下一堂課換新檔會自動切過去
+.\alert.ps1 output\xxx.txt      # 只監看指定檔案
+.\alert.ps1 --test              # 發一則測試通知，確認通知有跳出來
+.\alert.ps1 --replay output\live-20261014-152031.txt   # 掃整份舊逐字稿，只印出會觸發的行，不發通知
+```
+
+偵測分兩種：
+
+- 單行關鍵字（`KEYWORDS`）：小考／隨堂、同學問題、點名／抽問，一行命中就通知，同類 30 秒內不重複。
+- Quiz 計分（`QUIZ_CUES`）：Whisper 常把 Quiz 聽成「跪子」「CREASE」之類，所以改看最近 40 秒內的多個弱線索（Quiz 字樣、「接下來進入」、題目用語、「第 N 題」），總分達 3 分才通知，90 秒內不重複。
+
+要調整關鍵字或門檻，改 `alert.py` 開頭的常數，再用 `--replay` 拿舊逐字稿驗證。
+
+## 課堂問答：`ask.ps1`
+
+把題目複製到剪貼簿，回到 `ask.ps1` 視窗按 Enter，它會把當天所有逐字稿連同題目送給 Claude，約 5–10 秒回答。第一行是答案，第二行是逐字稿依據，同時也會跳 Windows 通知。
+
+```powershell
+.\ask.ps1                                # 預設 sonnet / medium，使用 output\ 最新那天的全部 live-*.txt
+.\ask.ps1 --model haiku --effort low     # 較快
+.\ask.ps1 --file output\xxx.txt          # 只用指定逐字稿
+```
+
+- 需要本機已安裝並登入 Claude Code CLI（`claude` 指令），透過 `claude -p` 呼叫，不需要 API key。
+- 同一天中途重開 `start.ps1` 產生的多個 `live-YYYYMMDD-*.txt` 會一起帶入。
+- 剪貼簿內容跟上一題相同時不重問，直接顯示上一題答案。輸入 `q` 離開。
+- 問答紀錄寫在 `output\ask-log.txt`。
+
 ## 本目錄內容
 
 - `.venv`：專案專用 Python 與套件
 - `models`：Whisper 模型
 - `cache`：Hugging Face 與執行快取
 - `output`：即時文字檔
+- `alert.py`／`alert.ps1`：逐字稿關鍵字監看與 Windows 通知
+- `ask.py`／`ask.ps1`：根據逐字稿回答剪貼簿題目
 - `script/command.sh`：可選的本機啟動便利指令
 
 系統上的 `ffmpeg` 執行檔直接沿用；本機已確認可用。
